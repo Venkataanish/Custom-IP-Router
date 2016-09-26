@@ -32,7 +32,7 @@ protected:
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_if_t *interfaces;
 	char *dev;
-
+	pcap_t *output;
 };
 
 #endif /* ROUTER_H_ */

@@ -38,6 +38,7 @@ Router::Router() {
 	// TODO Auto-generated constructor stub
 	this->interfaces = NULL;
 	this->dev 		 = NULL;
+	this->output     = NULL;
 }
 
 Router::~Router() {
@@ -58,12 +59,13 @@ void router_callback_handler(unsigned char * user, const struct pcap_pkthdr *pkt
 
 u_int16_t Router::handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 		const u_char* packet) {
-	char errbuf[PCAP_ERRBUF_SIZE];
 	IpMac table[2];
 	uint8_t mac0[6] = { 0x00, 0x04, 0x23, 0xbb, 0x12, 0xbc }; //node 4 mac
 	uint8_t mac1[6] = { 0x00, 0x04, 0x23, 0xad, 0xd8, 0x6d }; //rtr1 mac
 	table[0].ip = 67240202; // "10.1.2.4" node4
 	table[1].ip = 16777482; //"10.1.0.1" node1
+
+	//TODO: handle icmp request for 16908554 (10.1.2.1)
 
 	for (int j = 0; j < 6; j++) {
 		table[0].dmac[j] = mac0[j];
@@ -101,19 +103,8 @@ u_int16_t Router::handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr
 			fprintf(stdout, "destination: %s \n",
 					ether_ntoa((const struct ether_addr *) &sptr->ether_dhost));
 
-			// Write the Ethernet frame to the interface.
-			pcap_t *output = pcap_open_live("eth4", BUFSIZ, 1, -1, errbuf);
-			if (output == NULL) {
-				printf("pcap_open_live(): %s\n", errbuf);
-				exit(1);
-			}
-			if (pcap_inject(output, packet, pkthdr->len) == -1) {
-				pcap_perror(output, 0);
-				pcap_close(output);
-				exit(1);
-			}
 			printf("Inject completed on eth4\n");
-			pcap_close(output);
+
 		} else if (table[1].ip == ip->ip_dst.s_addr) {
 			uint8_t source_mac_addr[6] = { 0x00, 0x04, 0x23, 0xad, 0xda, 0xf7 }; //connected to rtr1
 
@@ -127,47 +118,15 @@ u_int16_t Router::handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr
 			fprintf(stdout, "destination: %s \n",
 					ether_ntoa((const struct ether_addr *) &sptr->ether_dhost));
 
-			pcap_t *output = pcap_open_live("eth2", BUFSIZ, 1, -1, errbuf);
-			if (output == NULL) {
-				printf("pcap_open_live(): %s\n", errbuf);
-				exit(1);
-			}
-			// Write the Ethernet frame to the interface.
-			if (pcap_inject(output, packet, pkthdr->len) == -1) {
-				pcap_perror(output, 0);
-				pcap_close(output);
-				exit(1);
-			}
 			printf("Inject completed on eth2\n");
-			pcap_close(output);
+
 		}
 
-//char if_name[] = "eth2";
-// Open a PCAP packet capture descriptor for the specified interface.
-		/*char pcap_errbuf[PCAP_ERRBUF_SIZE];
-		 pcap_errbuf[0] = '\0';
-		 pcap_t* pcap = pcap_open_live(if_name, 96, 0, 0, pcap_errbuf);
-		 if (pcap_errbuf[0] != '\0') {
-		 fprintf(stderr, "%s\n", pcap_errbuf);
-		 }
-		 if (!pcap) {
-		 exit(1);
-		 }*/
-
-// Close the PCAP descriptor.
-//pcap_close(pcap);
-	} else if (ntohs(eptr->ether_type) == ETHERTYPE_ARP) {/*
-	 fprintf(stdout, "Dev: %s APR (?): SRC MAC: %s",dev,
-	 ether_ntoa((const struct ether_addr *) &eptr->ether_shost));
-	 fprintf(stdout, " DEST MAC: %s ",
-	 ether_ntoa((const struct ether_addr *) &eptr->ether_dhost));
-
-	 fprintf(stdout, "(ARP)\n");
-	 */
-	} else if (ntohs(eptr->ether_type) == ETHERTYPE_REVARP) {
-		fprintf(stdout, "(RARP)\n");
-	} else {
-		fprintf(stdout, "(?)\n");
+		if (pcap_inject(this->output, packet, pkthdr->len) == -1) {
+			pcap_perror(this->output, 0);
+			pcap_close(this->output);
+			exit(1);
+		}
 
 	}
 
@@ -223,9 +182,21 @@ void Router::call_header_interact() {
 					//sprintf(filter, "src net %s/24", inet_ntoa(net_addr));
 					if (strcmp(dev, "eth2") == 0) {
 						sprintf(filter, "ether dst %s", "00:04:23:ad:da:f7");
+						// Write the Ethernet frame to the interface.
+						output = pcap_open_live("eth4", BUFSIZ, 1, -1, errbuf);
+						if (output == NULL) {
+							printf("pcap_open_live(): %s\n", errbuf);
+							exit(1);
+						}
 
 					} else if (strcmp(dev, "eth4") == 0) {
 						sprintf(filter, "ether dst %s", "00:11:43:d4:7c:8d");
+						// Write the Ethernet frame to the interface.
+						output = pcap_open_live("eth2", BUFSIZ, 1, -1, errbuf);
+						if (output == NULL) {
+							printf("pcap_open_live(): %s\n", errbuf);
+							exit(1);
+						}
 
 					}
 					printf("Setting filter for interface %s .. %s\n", dev, filter);
@@ -249,6 +220,7 @@ void Router::call_header_interact() {
 				} else {
 					// parent process
 					printf("started child %d, pid =%d\n", p++, pid);
+
 				}
 			}
 		}

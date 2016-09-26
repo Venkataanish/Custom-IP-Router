@@ -4,7 +4,7 @@ OBJS =		main.o Router.o
 
 LIBS =		-lpcap
 
-TARGET =	Router
+TARGET =	router
 
 $(TARGET):	$(OBJS)
 	$(CXX) -o $(TARGET) $(OBJS) $(LIBS)
