@@ -16,6 +16,8 @@ pcap_t *output;
 /* ethernet headers are always exactly 14 bytes */
 #define SIZE_ETHERNET 14
 
+//comment added by anish
+
 typedef struct ip_mac {
 	uint32_t ip;
 	uint8_t dmac[6];
