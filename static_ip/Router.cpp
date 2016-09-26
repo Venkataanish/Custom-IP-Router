@@ -12,11 +12,6 @@
 
 #include "Router.h"
 
-typedef struct ip_mac {
-	uint32_t ip;
-	uint8_t dmac[6];
-} IpMac;
-
 /* IP header */
 typedef struct sniff_ip {
 	u_char ip_vhl; /* version << 4 | header length >> 2 */
@@ -54,7 +49,38 @@ void Router::find_dev() {
 }
 
 void router_callback_handler(unsigned char * user, const struct pcap_pkthdr *pkthdr, const unsigned char * packet) {
-	((Router*) user)->my_callback(user, pkthdr, packet);
+	((Router*) user)->handle_ethernet(user, pkthdr, packet);
+}
+
+void Router::inject_pcap(struct ether_header *eptr, IpMac table, const struct pcap_pkthdr* pkthdr,
+		const u_char* packet, uint8_t *mac_addr) {
+	uint8_t source_mac_addr[6];
+
+	fprintf(stdout, "Dev: %s INCOMING: SRC MAC: %s", dev,
+			ether_ntoa((const struct ether_addr *) &eptr->ether_shost));
+	fprintf(stdout, " DEST MAC: %s ",
+			ether_ntoa((const struct ether_addr *) &eptr->ether_dhost));
+	fprintf(stdout, "(IP)\n");
+
+	for (int j = 0; j < 6; j++) {
+		source_mac_addr[j] = mac_addr[j];
+	}
+
+	memcpy(eptr->ether_shost, source_mac_addr, sizeof(source_mac_addr));
+	memcpy(eptr->ether_dhost, table.dmac, sizeof(table.dmac));
+	struct ether_header *sptr = (struct ether_header *) packet;
+
+	fprintf(stdout, "outgoing: source: %s ",
+			ether_ntoa((const struct ether_addr *) &sptr->ether_shost));
+	fprintf(stdout, "destination: %s \n",
+			ether_ntoa((const struct ether_addr *) &sptr->ether_dhost));
+
+	if (pcap_inject(this->output, packet, pkthdr->len) == -1) {
+		pcap_perror(this->output, 0);
+		pcap_close(this->output);
+		exit(1);
+	}
+
 }
 
 u_int16_t Router::handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
@@ -83,65 +109,24 @@ u_int16_t Router::handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr
 	/* check to see if we have an ip packet */
 	if (ntohs(eptr->ether_type) == ETHERTYPE_IP) {
 		printf("dst ip = %d\n", ip->ip_dst.s_addr);
-		fprintf(stdout, "Dev: %s INCOMING: SRC MAC: %s", dev,
-				ether_ntoa((const struct ether_addr *) &eptr->ether_shost));
-		fprintf(stdout, " DEST MAC: %s ",
-				ether_ntoa((const struct ether_addr *) &eptr->ether_dhost));
-		fprintf(stdout, "(IP)\n");
 
 		//send the modified packet
-
 		if (table[0].ip == ip->ip_dst.s_addr) {
 			uint8_t source_mac_addr[6] = { 0x00, 0x11, 0x43, 0xd4, 0x7c, 0x8d }; //connected to node4
 
-			memcpy(eptr->ether_shost, source_mac_addr, sizeof(source_mac_addr));
-			memcpy(eptr->ether_dhost, table[0].dmac, sizeof(table[0].dmac));
-			struct ether_header *sptr = (struct ether_header *) packet;
-
-			fprintf(stdout, "outgoing: source: %s ",
-					ether_ntoa((const struct ether_addr *) &sptr->ether_shost));
-			fprintf(stdout, "destination: %s \n",
-					ether_ntoa((const struct ether_addr *) &sptr->ether_dhost));
-
+			this->inject_pcap(eptr, table[0], pkthdr, packet, source_mac_addr);
 			printf("Inject completed on eth4\n");
 
 		} else if (table[1].ip == ip->ip_dst.s_addr) {
 			uint8_t source_mac_addr[6] = { 0x00, 0x04, 0x23, 0xad, 0xda, 0xf7 }; //connected to rtr1
 
-			memcpy(eptr->ether_shost, source_mac_addr,
-					sizeof(eptr->ether_shost));
-			memcpy(eptr->ether_dhost, table[1].dmac, sizeof(eptr->ether_dhost));
-			struct ether_header *sptr = (struct ether_header *) packet;
-
-			fprintf(stdout, "outgoing: source: %s ",
-					ether_ntoa((const struct ether_addr *) &sptr->ether_shost));
-			fprintf(stdout, "destination: %s \n",
-					ether_ntoa((const struct ether_addr *) &sptr->ether_dhost));
+			this->inject_pcap(eptr, table[1], pkthdr, packet, source_mac_addr);
 
 			printf("Inject completed on eth2\n");
-
 		}
-
-		if (pcap_inject(this->output, packet, pkthdr->len) == -1) {
-			pcap_perror(this->output, 0);
-			pcap_close(this->output);
-			exit(1);
-		}
-
 	}
 
 	return eptr->ether_type;
-}
-
-
-void Router::my_callback(u_char *args, const struct pcap_pkthdr* pkthdr,
-		const u_char* packet) {
-	u_int16_t type = handle_ethernet(args, pkthdr, packet);
-
-	if (type == ETHERTYPE_IP) {/* handle IP packet */
-	} else if (type == ETHERTYPE_ARP) {/* handle arp packet */
-	} else if (type == ETHERTYPE_REVARP) {/* handle reverse arp packet */
-	}
 }
 
 void Router::call_header_interact() {

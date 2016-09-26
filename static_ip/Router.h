@@ -19,14 +19,20 @@
 
 #define SIZE_ETHERNET 14
 
+typedef struct ip_mac {
+	uint32_t ip;
+	uint8_t dmac[6];
+} IpMac;
+
 class Router {
 public:
 	Router();
 	virtual ~Router();
 	void find_dev();
 	void call_header_interact();
-	void my_callback(u_char *args, const struct pcap_pkthdr* pkthdr,const u_char* packet);
 	u_int16_t handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr, const u_char* packet);
+	void inject_pcap(struct ether_header *eptr, IpMac table, const struct pcap_pkthdr* pkthdr,
+			const u_char* packet, uint8_t *mac_addr);
 
 protected:
 	char errbuf[PCAP_ERRBUF_SIZE];
