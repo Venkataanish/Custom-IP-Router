@@ -14,11 +14,7 @@ int main(int argc, char **argv) {
 
 	Router ip_router;
 
-	/* Options must be passed in as a string because I am lazy */
-	if (argc < 2) {
-		cout << "Usage: " << argv[0] << " numpackets "<< endl;
-		return 0;
-	}
+
 
 	ip_router.find_dev();
 	ip_router.call_header_interact();
