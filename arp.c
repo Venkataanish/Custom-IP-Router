@@ -37,18 +37,21 @@
 #endif
 
 typedef struct arp_table {
-    uint8_t send_mac[6];
-    uint32_t send_ip;
-
-    char ethint[1];
+    uint8_t destination_mac[6];
+    uint32_t destination_ip;
+    uint8_t sender_mac[6];
+    char ethint[4];
 }arp_t;
 
 typedef struct ethernet_to_mac {
 
-    char iface_name[1];
-    uint8_t mac_addr[6];
+    char iface_name[4];
+    uint8_t sender_mac[6];
 
 } EthMacPair;
+
+
+
 
 struct arp_header {
     unsigned short hardware_type;
@@ -62,12 +65,75 @@ struct arp_header {
     unsigned char target_ip[IPV4_LENGTH];
 };
 
+void get_packet();
+
 int main() {
+    EthMacPair myether[2];
+    struct arp_table myarp[2];
+
+    int i;
+
+
+    get_packet(myarp,myether);
+    int k;
+
+    for(i=0;i<2;i++)
+    {
+        printf("{ ethernet_mac struct \n");
+        printf("Interface of Source : %s", myether[i].iface_name);
+        printf("\nMAC of Sender is :");
+                        for (k = 0; k < 5; k++) {
+                            printf("%0x:", myether[i].sender_mac[k]);
+                        }
+                        printf("%0x", myether[i].sender_mac[5]);
+
+                        printf("\n");
+                        printf("}\n");
+
+
+        printf("{ arp_table struct \n");
+                        printf("IP of Destination is  :  ");
+                        printf("%d\n", myarp[i].destination_ip);
+
+                        
+                        
+                        
+                        
+                        
+                        printf("MAC of Destination is : ");
+                        for (k = 0; k< 5; k++) {
+                            printf("%0x:", myarp[i].destination_mac[k]);
+                        }
+                        printf("%0x", myarp[i].destination_mac[5]);
+
+                        printf("\n");
+                        printf("Interface of Destination : %s\n", myarp[i].ethint);
+
+
+                        
+                        printf("\nMAC of Sender is :");
+                        for (k = 0; k < 5; k++) {
+                            printf("%0x:", myarp[i].sender_mac[k]);
+                        }
+                        printf("%0x", myarp[i].sender_mac[5]);
+
+                        printf("\n");
+                        printf("}\n");
+
+
+    }
+
+    return 0;
+}               //main
+
+
+void get_packet(struct arp_table arp_entry[2], EthMacPair eth[2])
+{
     int i,k;
-    EthMacPair eth[2];
+    
     unsigned char buffer[BUF_SIZE];
     struct ethhdr *send_req = (struct ethhdr *)buffer;
-    struct arp_table arp_entry[2];
+    
     struct ifaddrs *addrs, *iap;
     struct sockaddr_in *sa;
     char buf[32];
@@ -95,7 +161,6 @@ int main() {
                 if ((!strcmp("10.1.2.1", buf))) {
 
                     printf("\n\n");
-                    printf("------------------------\n");
                     unsigned char s_ip[4] = { 10, 1, 2, 1 };
                     unsigned char t_ip[4] = { 10, 1, 2, 4 };
                     memcpy(source_ip, s_ip, 4);
@@ -103,7 +168,6 @@ int main() {
 
                 } else {
                     printf("\n\n");
-                    printf("------------------------\n");
                     unsigned char s_ip[4] = { 10, 10, 1, 2 };
                     unsigned char t_ip[4] = { 10, 10, 1, 1 };
                     memcpy(source_ip, s_ip, 4);
@@ -111,13 +175,10 @@ int main() {
                 }
                 int sd;
                 unsigned char buffer[BUF_SIZE];
-                //printf("i is %d\n",i);    
-                //printf("Real Interface name is %s\n",iap->ifa_name);
                 strcpy(arp_entry[i].ethint, iap->ifa_name);
                 strcpy(eth[i].iface_name,iap->ifa_name);
-               //printf("Interface of struct one is %s\n", arp_entry[i].ethint);
-                printf("{ ethernet_mac struct \n");
-                printf("Interface of Source : %s", eth[i].iface_name);
+                /*printf("{ ethernet_mac struct \n");
+                printf("Interface of Source : %s", eth[i].iface_name);*/
                 struct ifreq ifr;
                 struct ethhdr *send_req = (struct ethhdr *) buffer;
                 struct ethhdr *rcv_resp = (struct ethhdr *) buffer;
@@ -129,23 +190,18 @@ int main() {
                 int index, ret, length = 0, ifindex;
                 
                 memset(buffer, 0x00, 60);
-                /*open socket*/
                 sd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
                 if (sd == -1) {
                     perror("socket():");
                     exit(1);
                 }
-                //printf("1HERE\n");
                 strcpy(ifr.ifr_name, iap->ifa_name);
-                //printf("2HERE\n");
-                /*retrieve ethernet interface index*/
                 if (ioctl(sd, SIOCGIFINDEX, &ifr) == -1) {
                     perror("SIOCGIFINDEX");
                     exit(1);
                 }
                 ifindex = ifr.ifr_ifindex;
 
-                /*retrieve corresponding MAC*/
                 if (ioctl(sd, SIOCGIFHWADDR, &ifr) == -1) {
                     perror("SIOCGIFINDEX");
                     exit(1);
@@ -175,45 +231,27 @@ int main() {
                                 arp_req->sender_mac[index] = (unsigned char)ifr.ifr_hwaddr.sa_data[index];
                                 socket_address.sll_addr[index] = (unsigned char)ifr.ifr_hwaddr.sa_data[index];
                         }
-                /*printf(" arp_reqMAC address: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                        arp_req->sender_mac[0],arp_req->sender_mac[1],arp_req->sender_mac[2],
-                        arp_req->sender_mac[3],arp_req->sender_mac[4],arp_req->sender_mac[5]);*/
+                
                 
                  for (index = 0; index < 6; index++) {
-                            eth[i].mac_addr[index] =
+                            eth[i].sender_mac[index] =
+                                    (uint8_t) arp_req->sender_mac[index];
+                            arp_entry[i].sender_mac[index] =
                                     (uint8_t) arp_req->sender_mac[index];
                         }
                         //printf("\n");
-                        printf("\nMAC of Sender is :");
+                        /*printf("\nMAC of Sender is :");
                         for (index = 0; index < 5; index++) {
-                            printf("%0x:", eth[i].mac_addr[index]);
+                            printf("%0x:", eth[i].sender_mac[index]);
                         }
-                        printf("%0x", eth[i].mac_addr[5]);
+                        printf("%0x", eth[i].sender_mac[5]);
 
                         printf("\n");
-                        printf("}\n");
+                        printf("}\n");*/
 
 
 
-                //memcpy(eth[i].mac_addr,arq_req->sender_mac,6);
-                //RE-CHANGE CODE HERE
-                /*for (index = 0; index < 6; index++) {
-                                            eth.mac_addr[index] =
-                                                    (uint8_t) arp_req->sender_mac[index];
-                                        }*/
-
-                //CHANGE ALL THIS
-                //strcpy(eth.iface_name, iap->ifa_name);
-
-                /*printf("\nSender MAC after after after is\n");
-                                        for (index = 0; index < 5; index++) {
-                                            printf("%0X:", eth.mac_addr[index]);
-                                        }
-                                        printf("%0X", eth.mac_addr[5]);
-                k++;*/
-
-                                        //printf("Destination is on interface %s", eth.iface_name);
-
+                
                 /*prepare sockaddr_ll*/
                 socket_address.sll_family = AF_PACKET;
                 socket_address.sll_protocol = htons(ETH_P_ARP);
@@ -266,32 +304,45 @@ int main() {
                     }
                     if (htons(rcv_resp->h_proto) == PROTO_ARP) {
 
-                        arp_entry[i].send_ip = (uint32_t) arp_resp->sender_ip[0]
+                        arp_entry[i].destination_ip = (uint32_t) arp_resp->sender_ip[0]
                                 << 24 | (uint32_t) arp_resp->sender_ip[1] << 16
                                 | (uint32_t) arp_resp->sender_ip[2] << 8
                                 | (uint32_t) arp_resp->sender_ip[3];
                           
-                        printf("{ arp_table struct \n");
+                        /*printf("{ arp_table struct \n");
                         printf("IP of Destination is  :  ");
-                        printf("%d\n", arp_entry[i].send_ip);
+                        printf("%d\n", arp_entry[i].destination_ip);*/
 
                         for (index = 0; index < 6; index++) {
-                            arp_entry[i].send_mac[index] =
+                            arp_entry[i].destination_mac[index] =
                                     (uint8_t) arp_resp->sender_mac[index];
                         }
-                        //printf("\n");
                         
                         
                         
-                        printf("MAC of Destination is : ");
+                        
+                        /*printf("MAC of Destination is : ");
                         for (index = 0; index < 5; index++) {
-                            printf("%0x:", arp_entry[i].send_mac[index]);
+                            printf("%0x:", arp_entry[i].destination_mac[index]);
                         }
-                        printf("%0x", arp_entry[i].send_mac[5]);
+                        printf("%0x", arp_entry[i].destination_mac[5]);
 
                         printf("\n");
                         printf("Interface of Destination : %s\n", arp_entry[i].ethint);
-                        printf("}\n");
+
+
+                        
+                        printf("\nMAC of Sender is :");
+                        for (index = 0; index < 5; index++) {
+                            printf("%0x:", arp_entry[i].sender_mac[index]);
+                        }
+                        printf("%0x", arp_entry[i].sender_mac[5]);
+
+                        printf("\n");
+
+
+
+                        printf("}\n");*/
                         
                         i++; 
                         break;
@@ -306,10 +357,8 @@ int main() {
         }
     }
 
-//}
 
-//}//for
 
-    return 0;
-}                                //main
+}
+
 
