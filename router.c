@@ -5,14 +5,18 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
+//#include <netinet/in.h>
 #include <arpa/inet.h>
-#include <netinet/if_ether.h> 
-#include <net/ethernet.h>
-#include <netinet/ether.h> 
+
+#include <netinet/ether.h>
 #include <unistd.h>
+#include "arp.h"
 char *dev;
+char *odev;
+int icount = 2;
 pcap_t *output;
+EthMacPair myether[2];
+arp_t myarp[3];
 /* ethernet headers are always exactly 14 bytes */
 #define SIZE_ETHERNET 14
 
@@ -20,7 +24,7 @@ pcap_t *output;
 
 typedef struct ip_mac {
 	uint32_t ip;
-	uint8_t dmac[6];
+	uint8_t destination_mac[6];
 
 } IpMac;
 
@@ -48,7 +52,7 @@ u_int16_t handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 
 void my_callback(u_char *args, const struct pcap_pkthdr* pkthdr,
 		const u_char* packet) {
-	 handle_ethernet(args, pkthdr, packet);
+	handle_ethernet(args, pkthdr, packet);
 
 	/*if (type == ETHERTYPE_IP) { handle IP packet
 	 } else if (type == ETHERTYPE_ARP) { handle arp packet
@@ -58,21 +62,6 @@ void my_callback(u_char *args, const struct pcap_pkthdr* pkthdr,
 
 u_int16_t handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 		const u_char* packet) {
-
-	IpMac table[2];
-	uint8_t mac0[6] = { 0x00, 0x04, 0x23, 0xbb, 0x12, 0xbc }; //node 4 mac
-	uint8_t mac1[6] = { 0x00, 0x04, 0x23, 0xad, 0xd8, 0x6d }; //rtr1 mac
-	table[0].ip = 67240202; // "10.1.2.4" node4
-	table[1].ip = 16777482; //"10.1.0.1" node1
-
-	//TODO: handle icmp request for 16908554 (10.1.2.1)
-
-	for (int j = 0; j < 6; j++) {
-		table[0].dmac[j] = mac0[j];
-	}
-	for (int j = 0; j < 6; j++) {
-		table[1].dmac[j] = mac1[j];
-	}
 
 	struct ether_header *eptr; /* net/ethernet.h */
 
@@ -91,35 +80,27 @@ u_int16_t handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 
 		//send the modified packet
 
-		if (table[0].ip == ip->ip_dst.s_addr) {
-			uint8_t source_mac_addr[6] = { 0x00, 0x11, 0x43, 0xd4, 0x7c, 0x8d }; //connected to node4
+		for (int ii = 0; ii < 3; ii++) {
+			if (myarp[ii].destination_ip == ip->ip_dst.s_addr) {
+				//uint8_t source_mac_addr[6] = { 0x00, 0x11, 0x43, 0xd4, 0x7c, 0x8d }; //connected to node4
 
-			memcpy(eptr->ether_shost, source_mac_addr, sizeof(source_mac_addr));
-			memcpy(eptr->ether_dhost, table[0].dmac, sizeof(table[0].dmac));
-			struct ether_header *sptr = (struct ether_header *) packet;
+				memcpy(eptr->ether_shost, myarp[ii].source_mac,
+						sizeof(myarp[ii].source_mac));
+				memcpy(eptr->ether_dhost, myarp[ii].destination_mac,
+						sizeof(myarp[ii].destination_mac));
+				struct ether_header *sptr = (struct ether_header *) packet;
 
-			fprintf(stdout, "outgoing: source: %s ",
-					ether_ntoa((const struct ether_addr *) &sptr->ether_shost));
-			fprintf(stdout, "destination: %s \n",
-					ether_ntoa((const struct ether_addr *) &sptr->ether_dhost));
+				fprintf(stdout, "outgoing: source: %s ",
+						ether_ntoa(
+								(const struct ether_addr *) &sptr->ether_shost));
+				fprintf(stdout, "destination: %s \n",
+						ether_ntoa(
+								(const struct ether_addr *) &sptr->ether_dhost));
 
-			printf("Inject completed on eth4\n");
+				printf("Inject completed on %s\n", odev);
+				break;
 
-		} else if (table[1].ip == ip->ip_dst.s_addr) {
-			uint8_t source_mac_addr[6] = { 0x00, 0x04, 0x23, 0xad, 0xda, 0xf7 }; //connected to rtr1
-
-			memcpy(eptr->ether_shost, source_mac_addr,
-					sizeof(eptr->ether_shost));
-			memcpy(eptr->ether_dhost, table[1].dmac, sizeof(eptr->ether_dhost));
-			struct ether_header *sptr = (struct ether_header *) packet;
-
-			fprintf(stdout, "outgoing: source: %s ",
-					ether_ntoa((const struct ether_addr *) &sptr->ether_shost));
-			fprintf(stdout, "destination: %s \n",
-					ether_ntoa((const struct ether_addr *) &sptr->ether_dhost));
-
-			printf("Inject completed on eth2\n");
-
+			}
 		}
 
 		if (pcap_inject(output, packet, pkthdr->len) == -1) {
@@ -138,12 +119,9 @@ int main(int argc, char **argv) {
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t* descr;
 	struct bpf_program fp; /* hold compiled program     */
-	bpf_u_int32 maskp; /* subnet mask               */
-	bpf_u_int32 netp; /* ip                        */
+	bpf_u_int32 netp = 0; /* ip                        */
 	u_char* args = NULL;
 
-	/*variables used in for loop*/
-	//struct in_addr net_addr;
 	char filter[50];
 
 	/* Options must be passed in as a string because I am lazy */
@@ -152,94 +130,64 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	char error[PCAP_ERRBUF_SIZE];
-	char *ifnames[10] = { };
-	pcap_if_t *interfaces, *temp;
-	int count = 0;
-	if (pcap_findalldevs(&interfaces, error) == -1) {
-		printf("\nerror in pcap findall devs");
-		return -1;
-	}
+	int i;
+	get_packet(myarp, myether);
 
-	printf("\n the interfaces present on the system are:");
-	for (temp = interfaces; temp; temp = temp->next) {
+	for (i = 0; i < icount; i++) {
 
-		if (strstr(temp->name, "eth") != NULL) {
-			// contains eth
-			ifnames[count] = temp->name;
-			printf("\n%d  :  %s", count, temp->name);
-			count++;
-		}
+		dev = myether[i].iface_name;
 
-	}
+		pid_t pid = fork();
 
-	int i = 0;
+		if (pid == 0) {
 
-	printf("count %d\n", count);
-	for (i = 0; i < count; i++) {
-		dev = ifnames[i];
+			descr = pcap_open_live(dev, BUFSIZ, 1, -1, errbuf);
+			if (descr == NULL) {
+				printf("pcap_open_live(): %s\n", errbuf);
+				exit(1);
+			}
 
-		/* ask pcap for the network address and mask of the device */
-		pcap_lookupnet(dev, &netp, &maskp, errbuf);
-		int first_byte = netp & 0xFF;
-		if (first_byte == 10) {
-			pid_t pid = fork();
+			sprintf(filter, "ether dst %s",
+					ether_ntoa(
+							(const struct ether_addr *) myether[i].source_mac));
 
-			if (pid == 0) {
-				/* open device for reading. NOTE: defaulting to
-				 * promiscuous mode*/
-				descr = pcap_open_live(dev, BUFSIZ, 1, -1, errbuf);
-				if (descr == NULL) {
+			printf("Setting filter for interface %s .. %s\n", dev, filter);
+
+			if (pcap_compile(descr, &fp, filter, 0, netp) == -1) {
+				fprintf(stderr, "Error calling pcap_compile\n");
+				exit(1);
+			}
+
+			//set the compiled program as the filter
+			if (pcap_setfilter(descr, &fp) == -1) {
+				fprintf(stderr, "Error setting filter\n");
+				exit(1);
+
+			}
+
+			for (int j = 0; j < icount; j++) {
+				if (j == i) {
+					continue;
+				}
+				odev = myether[j].iface_name;
+				output = pcap_open_live(myether[j].iface_name, BUFSIZ, 1, -1,
+						errbuf);
+				if (output == NULL) {
 					printf("pcap_open_live(): %s\n", errbuf);
 					exit(1);
 				}
-
-				/* Lets try and compile the program.. non-optimized */
-				//net_addr.s_addr = netp;
-				//sprintf(filter, "src net %s/24", inet_ntoa(net_addr));
-				if (strcmp(dev, "eth2") == 0) {
-					sprintf(filter, "ether dst %s", "00:04:23:ad:da:f7");
-					// Write the Ethernet frame to the interface.
-					output = pcap_open_live("eth4", BUFSIZ, 1, -1, errbuf);
-					if (output == NULL) {
-						printf("pcap_open_live(): %s\n", errbuf);
-						exit(1);
-					}
-
-				} else if (strcmp(dev, "eth4") == 0) {
-					sprintf(filter, "ether dst %s", "00:11:43:d4:7c:8d");
-					// Write the Ethernet frame to the interface.
-					output = pcap_open_live("eth2", BUFSIZ, 1, -1, errbuf);
-					if (output == NULL) {
-						printf("pcap_open_live(): %s\n", errbuf);
-						exit(1);
-					}
-
-				}
-				printf("Setting filter for interface %s .. %s\n", dev, filter);
-
-				if (pcap_compile(descr, &fp, filter, 0, netp) == -1) {
-					fprintf(stderr, "Error calling pcap_compile\n");
-					exit(1);
-				}
-
-				//set the compiled program as the filter
-				if (pcap_setfilter(descr, &fp) == -1) {
-					fprintf(stderr, "Error setting filter\n");
-					exit(1);
-
-				}
-
-				// child process
-				/* ... and loop */
-				pcap_loop(descr, -1, my_callback, args);
-				exit(0);
-			} else {
-				// parent process
-				printf("started child %d, pid =%d\n", p++, pid);
-
+				break;
 			}
+			// child process
+			/* ... and loop */
+			pcap_loop(descr, -1, my_callback, args);
+			exit(0);
+		} else {
+			// parent process
+			printf("started child %d, pid =%d\n", p++, pid);
+
 		}
+		//}
 	}
 	printf("--end of program--\n");
 
