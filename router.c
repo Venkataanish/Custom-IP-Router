@@ -60,6 +60,24 @@ void my_callback(u_char *args, const struct pcap_pkthdr* pkthdr,
 	 }*/
 }
 
+unsigned short checksum(Iphdr *ip, int len) {
+	unsigned long sum = 0;
+	const uint16_t *ip1;
+
+	ip1 = (uint16_t *) ip;
+	while (len > 1) {
+		sum += *ip1++;
+		if (sum & 0x80000000)
+			sum = (sum & 0xFFFF) + (sum >> 16);
+		len -= 2;
+	}
+
+	while (sum >> 16)
+		sum = (sum & 0xFFFF) + (sum >> 16);
+
+	return (~sum);
+}
+
 u_int16_t handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 		const u_char* packet) {
 
@@ -80,14 +98,18 @@ u_int16_t handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 
 		//send the modified packet
 
-		for (int ii = 0; ii < 3; ii++) {
-			if (myarp[ii].destination_ip == ip->ip_dst.s_addr) {
+		for (int i = 0; i < 3; i++) {
+			if (myarp[i].destination_ip == ip->ip_dst.s_addr) {
 				//uint8_t source_mac_addr[6] = { 0x00, 0x11, 0x43, 0xd4, 0x7c, 0x8d }; //connected to node4
 
-				memcpy(eptr->ether_shost, myarp[ii].source_mac,
-						sizeof(myarp[ii].source_mac));
-				memcpy(eptr->ether_dhost, myarp[ii].destination_mac,
-						sizeof(myarp[ii].destination_mac));
+				//Decrement TTL
+				ip->ip_ttl = ip->ip_ttl - 1;
+				ip->ip_sum = checksum(ip, ip->ip_len);
+
+				memcpy(eptr->ether_shost, myarp[i].source_mac,
+						sizeof(myarp[i].source_mac));
+				memcpy(eptr->ether_dhost, myarp[i].destination_mac,
+						sizeof(myarp[i].destination_mac));
 				struct ether_header *sptr = (struct ether_header *) packet;
 
 				fprintf(stdout, "outgoing: source: %s ",
