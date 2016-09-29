@@ -42,12 +42,13 @@ typedef struct routing_table {
 	uint8_t destination_mac[6];
 	uint32_t destination_ip;
 	uint8_t source_mac[6];
-	char iface_name[4];
+	char iface_name[5];
+	int iface;
 } arp_t;
 
 typedef struct ethernet_to_mac {
 
-	char iface_name[4];
+	char iface_name[5];
 	uint8_t source_mac[6];
 
 } EthMacPair;

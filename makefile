@@ -7,4 +7,4 @@ arptest:arptest.c arp.c arp.h
 	g++ -o arptest arptest.c arp.c
 
 clean:
-	rm -f *.o router 
+	rm -f *.o router arptest

@@ -7,8 +7,9 @@ void get_packet(struct routing_table arp_entry[], EthMacPair eth[]) {
 	char buf[32];
 	unsigned char source_ip[4];
 	unsigned char target_ip[4];
-	arp_t node1_entry;
-	node1_entry.destination_ip = 16777482;
+	arp_t node1_entry, node0_entry;
+	node1_entry.destination_ip = 16777482; //10.1.0.1
+	node0_entry.destination_ip = 33554698; //10.1.0.2
 	int is_node1 = 0;
 	getifaddrs(&addrs);
 
@@ -18,17 +19,26 @@ void get_packet(struct routing_table arp_entry[], EthMacPair eth[]) {
 			sa = (struct sockaddr_in *) (iap->ifa_addr);
 			inet_ntop(iap->ifa_addr->sa_family, (void *) &(sa->sin_addr), buf,
 					sizeof(buf));
-			if ((strcmp("10.1.2.1", buf) == 0)
+			if (((strcmp("10.10.3.1", buf)) == 0)
+					|| (strcmp("10.1.2.1", buf) == 0)
 					|| (strcmp("10.10.1.2", buf) == 0)) {
 				if ((strcmp("10.1.2.1", buf)) == 0) {
 					unsigned char s_ip[4] = { 10, 1, 2, 1 };
-					unsigned char t_ip[4] = { 10, 1, 2, 4 };
+					unsigned char t_ip[4] = { 10, 1, 2, 4 }; //node 4
 					memcpy(source_ip, s_ip, 4);
 					memcpy(target_ip, t_ip, 4);
 				}
 				if ((strcmp("10.10.1.2", buf)) == 0) {
 					unsigned char s_ip[4] = { 10, 10, 1, 2 };
-					unsigned char t_ip[4] = { 10, 10, 1, 1 };
+					unsigned char t_ip[4] = { 10, 10, 1, 1 }; //rtr 1
+					memcpy(source_ip, s_ip, 4);
+					memcpy(target_ip, t_ip, 4);
+					is_node1 = 1;
+				}
+
+				if ((strcmp("10.10.3.1", buf)) == 0) {
+					unsigned char s_ip[4] = { 10, 10, 3, 1 };
+					unsigned char t_ip[4] = { 10, 10, 3, 2 }; //rtr 2
 					memcpy(source_ip, s_ip, 4);
 					memcpy(target_ip, t_ip, 4);
 					is_node1 = 1;
@@ -36,7 +46,11 @@ void get_packet(struct routing_table arp_entry[], EthMacPair eth[]) {
 				int sd;
 				unsigned char buffer[BUF_SIZE];
 				strcpy(arp_entry[i].iface_name, iap->ifa_name);
+				arp_entry[i].iface = arp_entry[i].iface_name[3] - '0';
+
+				arp_entry[i].iface_name[4] = '\0';
 				strcpy(eth[i].iface_name, iap->ifa_name);
+				eth[i].iface_name[4] = '\0';
 				struct ifreq ifr;
 				struct ethhdr *send_req = (struct ethhdr *) buffer;
 				struct ethhdr *rcv_resp = (struct ethhdr *) buffer;
@@ -164,6 +178,17 @@ void get_packet(struct routing_table arp_entry[], EthMacPair eth[]) {
 							memcpy(node1_entry.iface_name,
 									arp_entry[i].iface_name,
 									sizeof(arp_entry[i].iface_name));
+							node1_entry.iface_name[4] = '\0';
+							memcpy(node0_entry.destination_mac,
+									arp_entry[i].destination_mac,
+									sizeof(arp_entry[i].destination_mac));
+							memcpy(node0_entry.source_mac,
+									arp_entry[i].source_mac,
+									sizeof(arp_entry[i].source_mac));
+							memcpy(node0_entry.iface_name,
+									arp_entry[i].iface_name,
+									sizeof(arp_entry[i].iface_name));
+							node0_entry.iface_name[4] = '\0';
 							is_node1 = 0;
 
 						}
@@ -177,4 +202,13 @@ void get_packet(struct routing_table arp_entry[], EthMacPair eth[]) {
 	}
 
 	arp_entry[i] = node1_entry;
+	arp_entry[i].iface = arp_entry[i].iface_name[3] - '0';
+	/*memcpy(arp_entry[i].iface_name, node1_entry.iface_name,
+	 sizeof(node1_entry.iface_name));*/
+	i++;
+
+	arp_entry[i] = node0_entry;
+	arp_entry[i].iface = arp_entry[i].iface_name[3] - '0';
+	/*memcpy(arp_entry[i].iface_name, node0_entry.iface_name,
+	 sizeof(node0_entry.iface_name));*/
 }
