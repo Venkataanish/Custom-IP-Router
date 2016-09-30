@@ -119,13 +119,13 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 	in_addr_t temp = ip->ip_src.s_addr;
 	ip->ip_ttl = ip->ip_ttl - 1;
 	if (ntohs(eptr->ether_type) == ETHERTYPE_IP) {
-		printf("dst ip = %d , ttl = %d , protocol = %d\n", ip->ip_dst.s_addr,
+		/*printf("dst ip = %d , ttl = %d , protocol = %d\n", ip->ip_dst.s_addr,
 				ip->ip_ttl, ip->ip_p);
 		fprintf(stdout, "Dev: %s INCOMING: SRC MAC: %s", dev,
 				ether_ntoa((const struct ether_addr *) &eptr->ether_shost));
 		fprintf(stdout, " DEST MAC: %s ",
 				ether_ntoa((const struct ether_addr *) &eptr->ether_dhost));
-		fprintf(stdout, "(IP)\n");
+		fprintf(stdout, "(IP)\n");*/
 
 		//send the modified packet
 
@@ -149,14 +149,14 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 				//dest unreachable
 				icmp_hdr->icmp_type = 3;
 				icmp_hdr->icmp_code = 3;
-				printf("Dest host unreachable.\n");
+				/*printf("Dest host unreachable.\n");*/
 
 			} else {
 
 				//timeout exceeded
 				icmp_hdr->icmp_type = 11;
 				icmp_hdr->icmp_code = 0;
-				printf("timeout exceeded.\n");
+				/*printf("timeout exceeded.\n");*/
 
 			}
 
@@ -181,20 +181,20 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 			for (int j = 0; j < 5; j++) {
 				/*printf("inside for dest ip = %d\n", ip->ip_dst.s_addr);*/
 				if (table[j].destination_ip == ip->ip_dst.s_addr) {
-					printf("inside if\n");
+					/*printf("inside if\n");*/
 
 					memcpy(eptr->ether_shost, table[j].source_mac,
 							sizeof(table[j].source_mac));
 					memcpy(eptr->ether_dhost, table[j].destination_mac,
 							sizeof(table[j].destination_mac));
-					struct ether_header *sptr = (struct ether_header *) packet;
+					//struct ether_header *sptr = (struct ether_header *) packet;
 
-					fprintf(stdout, "icmp pkt outgoing: source: %s ",
+				/*	fprintf(stdout, "icmp pkt outgoing: source: %s ",
 							ether_ntoa(
 									(const struct ether_addr *) &sptr->ether_shost));
 					fprintf(stdout, "icmp pkt destination: %s \n",
 							ether_ntoa(
-									(const struct ether_addr *) &sptr->ether_dhost));
+									(const struct ether_addr *) &sptr->ether_dhost));*/
 					break;
 
 				}				//end of if
@@ -205,7 +205,7 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 				pcap_close(descr);
 				exit(1);
 			}				// end of inject if
-			printf("Inject completed on %s\n", dev);
+			/*printf("Inject completed on %s\n", dev);*/
 
 		}
 	}
@@ -230,7 +230,7 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 				icmp_hdr->icmp_cksum = 0;
 				ip_len = ntohs(ip->ip_len);
 				icmp_len = ip_len - sizeof(struct ip);
-				printf("ICMP_ECHO request.\n");
+				/*printf("ICMP_ECHO request.\n");*/
 				icmp_hdr->icmp_cksum = in_cksum((unsigned short *) icmp_hdr,
 						icmp_len);
 			} //if echo check end
@@ -245,21 +245,21 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 
 			// modify mac
 			for (int j = 0; j < 5; j++) {
-				printf("inside for dest ip = %d\n", ip->ip_dst.s_addr);
+			/*	printf("inside for dest ip = %d\n", ip->ip_dst.s_addr);*/
 				if (table[j].destination_ip == ip->ip_dst.s_addr) {
-					printf("inside if\n");
+					/*printf("inside if\n");*/
 					memcpy(eptr->ether_shost, table[j].source_mac,
 							sizeof(table[j].source_mac));
 					memcpy(eptr->ether_dhost, table[j].destination_mac,
 							sizeof(table[j].destination_mac));
-					struct ether_header *sptr = (struct ether_header *) packet;
+					/*struct ether_header *sptr = (struct ether_header *) packet;
 
 					fprintf(stdout, "icmp pkt outgoing: source: %s ",
 							ether_ntoa(
 									(const struct ether_addr *) &sptr->ether_shost));
 					fprintf(stdout, "icmp pkt destination: %s \n",
 							ether_ntoa(
-									(const struct ether_addr *) &sptr->ether_dhost));
+									(const struct ether_addr *) &sptr->ether_dhost));*/
 					break;
 
 				}				//end of if
@@ -270,7 +270,7 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 				pcap_close(descr);
 				exit(1);
 			}				// end of inject if
-			printf("Inject completed on %s\n", dev);
+			/*printf("Inject completed on %s\n", dev);*/
 
 		} //end of my_ip if
 
@@ -288,14 +288,14 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 						sizeof(table[i].source_mac));
 				memcpy(eptr->ether_dhost, table[i].destination_mac,
 						sizeof(table[i].destination_mac));
-				struct ether_header *sptr = (struct ether_header *) packet;
+				/*struct ether_header *sptr = (struct ether_header *) packet;
 
 				fprintf(stdout, "outgoing: source: %s ",
 						ether_ntoa(
 								(const struct ether_addr *) &sptr->ether_shost));
 				fprintf(stdout, "destination: %s \n",
 						ether_ntoa(
-								(const struct ether_addr *) &sptr->ether_dhost));
+								(const struct ether_addr *) &sptr->ether_dhost));*/
 
 				break;
 
@@ -303,17 +303,17 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 		}
 
 		for (j = 0; j < 2; j++) {
-			printf(" table iface = %d, output iface =%d \n", table[i].iface,
+			/*printf(" table iface = %d, output iface =%d \n", table[i].iface,
 			 output[j].iface);
 			 printf(" table iface = %s, output iface =%s \n",
-			 table[i].iface_name, output[j].iface_name);
+			 table[i].iface_name, output[j].iface_name);*/
 			if (output[j].iface == table[i].iface) {
 				if (pcap_inject(output[j].pcap, packet, pkthdr->len) == -1) {
 					pcap_perror(output[j].pcap, 0);
 					pcap_close(output[j].pcap);
 					exit(1);
 				}
-				printf("Inject completed on %s\n", output[j].iface_name);
+				/*printf("Inject completed on %s\n", output[j].iface_name);*/
 				break;
 			}
 		}
@@ -333,11 +333,7 @@ int main(int argc, char **argv) {
 
 	char filter[50];
 
-	/* Options must be passed in as a string because I am lazy */
-	if (argc < 2) {
-		fprintf(stdout, "Usage: %s numpackets \"options\"\n", argv[0]);
-		return 0;
-	}
+
 
 	int i;
 	get_packet(table, ethMacPair);
@@ -361,7 +357,7 @@ int main(int argc, char **argv) {
 					ether_ntoa(
 							(const struct ether_addr *) ethMacPair[i].source_mac));
 
-			printf("Setting filter for interface %s .. %s\n", dev, filter);
+			/*printf("Setting filter for interface %s .. %s\n", dev, filter);*/
 
 			if (pcap_compile(descr, &fp, filter, 0, netp) == -1) {
 				fprintf(stderr, "Error calling pcap_compile\n");
@@ -377,14 +373,14 @@ int main(int argc, char **argv) {
 
 			for (int j = 0; j < icount; j++) {
 				if (j != i) {
-					printf("output to be set %s\n", ethMacPair[j].iface_name);
+					/*printf("output to be set %s\n", ethMacPair[j].iface_name);*/
 					strcpy(output[fix_k].iface_name, ethMacPair[j].iface_name);
 
 					output[fix_k].iface = output[fix_k].iface_name[3] - '0';
 
-					printf("output open %s  %d input = %s j = %d\n",
+				/*	printf("output open %s  %d input = %s j = %d\n",
 							output[fix_k].iface_name, output[fix_k].iface, dev,
-							j);
+							j);*/
 
 					output[fix_k].pcap = pcap_open_live(
 							output[fix_k].iface_name,
