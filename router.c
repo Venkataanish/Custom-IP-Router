@@ -34,7 +34,7 @@ typedef struct ip_mac {
 } IpMac;
 
 EthMacPair ethMacPair[3];
-arp_t table[5];
+arp_t table[6];
 Output output[2];
 uint32_t my_ip[3] = { 16908554, 33622538, 16976394 };
 /* IP header */
@@ -178,7 +178,7 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 			ip->ip_sum = checksum(ip, IP_HL(ip) * 4);
 
 			// modify mac
-			for (int j = 0; j < 5; j++) {
+			for (int j = 0; j < 6; j++) {
 				/*printf("inside for dest ip = %d\n", ip->ip_dst.s_addr);*/
 				if (table[j].destination_ip == ip->ip_dst.s_addr) {
 					/*printf("inside if\n");*/
@@ -244,7 +244,7 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 			ip->ip_sum = checksum(ip, IP_HL(ip) * 4);
 
 			// modify mac
-			for (int j = 0; j < 5; j++) {
+			for (int j = 0; j < 6; j++) {
 			/*	printf("inside for dest ip = %d\n", ip->ip_dst.s_addr);*/
 				if (table[j].destination_ip == ip->ip_dst.s_addr) {
 					/*printf("inside if\n");*/
@@ -276,7 +276,7 @@ void handle_ethernet(u_char *args, const struct pcap_pkthdr* pkthdr,
 
 	} else {
 		int i, j;
-		for (i = 0; i < 5; i++) {
+		for (i = 0; i < 6; i++) {
 			if (table[i].destination_ip == ip->ip_dst.s_addr) {
 
 				//Decrement TTL

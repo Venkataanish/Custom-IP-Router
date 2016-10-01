@@ -2,8 +2,8 @@
 
 int icount = 3;
 EthMacPair myether[3];
-int nodes = 5;
-arp_t myarp[5];
+int nodes = 6;
+arp_t myarp[6];
 int main() {
 
 	int i;
@@ -22,7 +22,7 @@ int main() {
 		printf("}\n");
 	}
 	for (i = 0; i < nodes; i++) {
-		printf("{ arp_table struct \n");
+		printf("{ arp_table struct %d \n",i+1);
 		printf("IP of Destination is  :  ");
 		printf("%d\n", myarp[i].destination_ip);
 		printf("Destination Mac is : ");
