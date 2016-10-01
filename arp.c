@@ -41,7 +41,7 @@ void get_packet(struct routing_table arp_entry[], EthMacPair eth[]) {
 					unsigned char t_ip[4] = { 10, 10, 3, 2 }; //rtr 2
 					memcpy(source_ip, s_ip, 4);
 					memcpy(target_ip, t_ip, 4);
-					is_node1 = 1;
+
 				}
 				int sd;
 				unsigned char buffer[BUF_SIZE];
