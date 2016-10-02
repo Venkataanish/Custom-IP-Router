@@ -1,0 +1,16 @@
+Instructions to run the software IP Router:
+
+1) Download all files into a folder
+The files to be present are:
+arp.c
+arp.h
+router.c
+makefile
+
+2)BUILD: 
+Type make to build .o files
+
+3) Run the router
+./router
+
+4) Now the router is running  
